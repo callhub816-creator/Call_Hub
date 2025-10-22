@@ -51,23 +51,13 @@ const AgentProfile = () => {
               transition={{ delay: 0.1 }}
               className="relative"
             >
-              <div className={`aspect-square rounded-3xl bg-gradient-to-br ${agent.color} relative overflow-hidden glow-pink`}>
-                <div className="absolute inset-0 bg-black/20" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div
-                    animate={{
-                      scale: [1, 1.1, 1],
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                    className="text-9xl"
-                  >
-                    💖
-                  </motion.div>
-                </div>
+              <div className={`aspect-square rounded-3xl relative overflow-hidden glow-pink`}>
+                <img 
+                  src={agent.image} 
+                  alt={agent.name}
+                  className="w-full h-full object-cover"
+                />
+                <div className={`absolute inset-0 bg-gradient-to-br ${agent.color} opacity-20`} />
                 
                 {/* Floating Hearts */}
                 <motion.div
@@ -82,7 +72,7 @@ const AgentProfile = () => {
                   }}
                   className="absolute top-10 right-10"
                 >
-                  <Heart className="w-8 h-8 text-white/50 fill-white/50" />
+                  <Heart className="w-8 h-8 text-white/80 fill-white/80 drop-shadow-lg" />
                 </motion.div>
                 
                 <motion.div
@@ -98,7 +88,7 @@ const AgentProfile = () => {
                   }}
                   className="absolute bottom-20 left-10"
                 >
-                  <Sparkles className="w-6 h-6 text-white/40" />
+                  <Sparkles className="w-6 h-6 text-white/60 drop-shadow-lg" />
                 </motion.div>
               </div>
             </motion.div>
@@ -114,7 +104,6 @@ const AgentProfile = () => {
                 <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2">
                   {agent.name}
                 </h1>
-                <p className="text-muted-foreground text-lg">{agent.age} years old</p>
               </div>
 
               <Badge variant="secondary" className="text-lg px-4 py-2 bg-primary/20 text-primary border-primary/30">

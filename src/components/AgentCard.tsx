@@ -26,24 +26,25 @@ export const AgentCard = ({ agent, index }: AgentCardProps) => {
         <div className={`absolute inset-0 bg-gradient-to-br ${agent.color} opacity-10 group-hover:opacity-20 transition-opacity`} />
         
         <div className="relative p-6 space-y-4">
-          {/* Avatar Placeholder */}
-          <div className={`w-full aspect-square rounded-2xl bg-gradient-to-br ${agent.color} flex items-center justify-center relative overflow-hidden`}>
-            <div className="absolute inset-0 bg-black/20" />
-            <div className="relative text-6xl">💖</div>
+          {/* Avatar */}
+          <div className={`w-full aspect-square rounded-2xl relative overflow-hidden group-hover:scale-105 transition-transform duration-300`}>
+            <img 
+              src={agent.image} 
+              alt={agent.name}
+              className="w-full h-full object-cover"
+            />
+            <div className={`absolute inset-0 bg-gradient-to-br ${agent.color} opacity-20 group-hover:opacity-10 transition-opacity`} />
             <div className="absolute bottom-3 right-3">
-              <Heart className="w-6 h-6 text-white fill-white animate-pulse" />
+              <Heart className="w-6 h-6 text-white fill-white animate-pulse drop-shadow-lg" />
             </div>
           </div>
 
           {/* Info */}
           <div className="space-y-2">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  {agent.name}
-                </h3>
-                <p className="text-muted-foreground text-sm">{agent.age} years old</p>
-              </div>
+            <div>
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                {agent.name}
+              </h3>
             </div>
 
             <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
