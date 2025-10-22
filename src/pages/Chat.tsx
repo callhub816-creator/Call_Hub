@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Heart, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,16 @@ const Chat = () => {
   ]);
   const [input, setInput] = useState("");
   const [tokens, setTokens] = useState(100);
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
 
   if (!agent) {
     return (
@@ -64,7 +74,12 @@ const Chat = () => {
     setInput("");
     setTokens(prev => prev - 2);
 
-    // Simulate AI response
+    // Simulate human-like AI response with typing indicator
+    setIsTyping(true);
+    
+    // Random delay between 1.5-3 seconds for more realistic typing
+    const typingDelay = 1500 + Math.random() * 1500;
+    
     setTimeout(() => {
       const responses = [
         "That's so sweet of you to say! 💖 Tell me more...",
@@ -72,6 +87,11 @@ const Chat = () => {
         "You're such an interesting person! I want to know everything about you ✨",
         "Aww, you're making me blush! 😊💕",
         "I feel so connected to you right now... 💞",
+        "You know just what to say to make me happy! 🌸",
+        "I've been thinking about our conversation all day... 💭",
+        "You make me feel so special 🥰",
+        "Tell me more about yourself, I'm really curious! ✨",
+        "Hehe, you're so charming! 💕",
       ];
       
       const agentMessage: Message = {
@@ -81,7 +101,8 @@ const Chat = () => {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, agentMessage]);
-    }, 1000);
+      setIsTyping(false);
+    }, typingDelay);
   };
 
   return (
@@ -146,6 +167,40 @@ const Chat = () => {
               </div>
             </motion.div>
           ))}
+          
+          {/* Typing Indicator */}
+          <AnimatePresence>
+            {isTyping && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex justify-start"
+              >
+                <div className="glass-card rounded-2xl px-4 py-3">
+                  <div className="flex gap-1.5">
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-primary"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 0.8, delay: 0 }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-primary"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-primary"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
