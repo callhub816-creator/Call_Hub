@@ -29,7 +29,7 @@ const Index = () => {
             className="text-5xl md:text-7xl font-bold"
           >
             <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-              Your AI Girlfriend.
+              Your AI Buddy.
             </span>
             <br />
             <span className="text-foreground">Anytime. Anywhere.</span>

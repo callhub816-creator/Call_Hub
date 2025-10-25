@@ -32,7 +32,7 @@ export const Navbar = ({ tokens = 100, isAuthenticated = false, onLogout }: Navb
             </div>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                CallHub.AI
+                CallHub
               </h1>
               <p className="text-xs text-muted-foreground -mt-1">Where AI meets emotion</p>
             </div>
