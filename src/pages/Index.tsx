@@ -41,8 +41,8 @@ const Index = () => {
             transition={{ delay: 0.3 }}
             className="text-xl text-muted-foreground max-w-2xl mx-auto"
           >
-            Chat. Call. Feel Loved. Experience emotional connections with AI companions
-            designed to understand and care about you.
+            Where Hearts Meet Technology. Connect with AI companions who truly listen, 
+            understand, and make every conversation feel like coming home.
           </motion.p>
 
           <motion.div
