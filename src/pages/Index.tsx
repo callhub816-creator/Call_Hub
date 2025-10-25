@@ -41,7 +41,7 @@ const Index = () => {
             transition={{ delay: 0.3 }}
             className="text-xl text-muted-foreground max-w-2xl mx-auto"
           >
-            Where Hearts Meet Technology. Connect with AI companions who truly listen, 
+            Where Hearts Meet Technology. Connect with AI Friends who truly listen, 
             understand, and make every conversation feel like coming home.
           </motion.p>
 
@@ -69,7 +69,7 @@ const Index = () => {
           className="text-center mb-12"
         >
           <h2 className="text-3xl font-bold mb-3">
-            Meet Your <span className="text-primary">AI Companions</span>
+            Meet Your <span className="text-primary">AI Friends</span>
           </h2>
           <p className="text-muted-foreground">Each with a unique personality, voice, and style</p>
         </motion.div>
@@ -90,7 +90,7 @@ const Index = () => {
       >
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
           <p>© 2025 CallHub.AI • Love in pixels • 18+ Only</p>
-          <p className="mt-2">Made with 💖 for emotional AI experiences</p>
+          <p className="mt-2">Made with  for emotional AI experiences</p>
         </div>
       </motion.footer>
     </div>
