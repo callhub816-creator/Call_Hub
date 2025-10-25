@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { agents } from "@/data/agents";
 import { useToast } from "@/hooks/use-toast";
 import Sentiment from 'sentiment';
-import { generateWithWebLLM } from "@/lib/webllm";
+
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -34,7 +34,7 @@ const Chat = () => {
   const [input, setInput] = useState("");
   const [tokens, setTokens] = useState(100);
   const [isTyping, setIsTyping] = useState(false);
-  const [useWebLLM, setUseWebLLM] = useState<boolean>(USE_WEBLLM_DEFAULT);
+  const [useWebLLM, setUseWebLLM] = useState<boolean>(String(import.meta.env.VITE_USE_WEBLLM || "").toLowerCase() === "true");
   const [selectedLanguage, setSelectedLanguage] = useState<string | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -214,7 +214,7 @@ const Chat = () => {
     }
   };
 
-  const USE_WEBLLM_DEFAULT = String(import.meta.env.VITE_USE_WEBLLM || "").toLowerCase() === "true";
+
   
   // Indian language detection
   const indianLanguages = [
@@ -269,6 +269,15 @@ const Chat = () => {
     return undefined;
   }
 
+  // Fail-safe: wrap a promise with a timeout so typing never gets stuck
+   function withTimeout<T>(p: Promise<T>, ms: number, reason = "timeout"): Promise<T> {
+     return new Promise<T>((resolve, reject) => {
+       const t = setTimeout(() => reject(new Error(reason)), ms);
+       p.then((v) => { clearTimeout(t); resolve(v); })
+        .catch((e) => { clearTimeout(t); reject(e); });
+     });
+   }
+  
   const buildAgentResponse = async (userText: string) => {
     const category = classifyInput(userText);
     const personality = agent?.personality || '';
@@ -282,10 +291,16 @@ const Chat = () => {
     const targetLang = selectedLanguage ?? detectIndianLanguage(userText);
     if (useWebLLM && agent) {
       try {
-        const llmText = await generateWithWebLLM({ agent, userText, language: targetLang });
+        const { generateWithWebLLM } = await import("@/lib/webllm");
+        const llmText = await withTimeout(
+          generateWithWebLLM({ agent, userText, language: targetLang }),
+          15000,
+          "webllm-timeout"
+        );
         return applyPersonalityTone(personality, llmText, score, category);
       } catch (e) {
         console.warn('WebLLM error, falling back:', e);
+        toast({ title: "On-device LLM delayed", description: "Falling back to fast reply." });
       }
     }
   

@@ -1,5 +1,5 @@
 import type { Agent } from "@/data/agents";
-import { CreateMLCEngine, type MLCEngineInterface } from "@mlc-ai/web-llm";
+import type { MLCEngineInterface } from "@mlc-ai/web-llm";
 
 let enginePromise: Promise<MLCEngineInterface> | null = null;
 
@@ -7,6 +7,7 @@ const DEFAULT_MODEL = "Llama-3.1-8B-Instruct-q4f32_1-MLC";
 
 export async function getEngine(modelId: string = DEFAULT_MODEL): Promise<MLCEngineInterface> {
   if (!enginePromise) {
+    const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
     enginePromise = CreateMLCEngine(modelId, {
       initProgressCallback: (report) => {
         // You can wire this to a toast if desired
