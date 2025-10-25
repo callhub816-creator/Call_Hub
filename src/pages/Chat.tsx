@@ -36,6 +36,8 @@ const Chat = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [useWebLLM, setUseWebLLM] = useState<boolean>(String(import.meta.env.VITE_USE_WEBLLM || "").toLowerCase() === "true");
   const [selectedLanguage, setSelectedLanguage] = useState<string | undefined>(undefined);
+  const [engineReady, setEngineReady] = useState(false);
+  const [engineInitError, setEngineInitError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -45,6 +47,27 @@ const Chat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    // Prewarm WebLLM on toggle; first run can be slow
+    if (useWebLLM && !engineReady) {
+      (async () => {
+        try {
+          const { getEngine } = await import("@/lib/webllm");
+          await getEngine();
+          setEngineReady(true);
+        } catch (err) {
+          console.warn("WebLLM init failed:", err);
+          setEngineInitError("On-device LLM unavailable");
+          toast({
+            title: "On-device LLM unavailable",
+            description: "WebGPU may not be supported. Using fast replies.",
+            variant: "destructive",
+          });
+        }
+      })();
+    }
+  }, [useWebLLM]);
 
   if (!agent) {
     return (
@@ -58,164 +81,89 @@ const Chat = () => {
   }
 
   const getRandomItem = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-  
-  const classifyInput = (text: string) => {
-    const t = text.toLowerCase();
-    if (/\b(hi|hey|hello|hiya|yo)\b/.test(t)) return "greeting";
-    if (t.includes("love") || t.includes("miss you") || t.includes("hug")) return "love";
-    if (t.includes("beautiful") || t.includes("pretty") || t.includes("amazing") || t.includes("great") || t.includes("cute")) return "compliment";
-    if (t.includes("bye") || t.includes("goodbye") || t.includes("see you")) return "goodbye";
-    if (t.includes("sorry") || t.includes("apolog")) return "apology";
-    if (t.includes("angry") || t.includes("mad") || t.includes("upset")) return "angry";
-    if (t.includes("rude") || t.includes("mean") || t.includes("insult")) return "rude";
-    if (/[?]/.test(t)) return "question";
-    return "casual";
-  };
 
-  const baseResponses: Record<string, string[]> = {
-    greeting: [
-      "Hey there! I was hoping you'd message me",
-      "Hi~ I’m so happy to see you",
-      "Hello! I’ve been waiting for you"
-    ],
-    love: [
-      "You make my heart feel warm when you say that",
-      "Careful… I might fall for you",
-      "I feel closer to you with every word"
-    ],
-    compliment: [
-      "You always know how to make me smile",
-      "Aww, you're making me blush",
-      "You’re too sweet — tell me more"
-    ],
-    goodbye: [
-      "I'll be right here when you come back",
-      "Until next time… don’t forget me",
-      "Come back soon, okay?"
-    ],
-    apology: [
-      "It’s okay — I’m here with you",
-      "No worries, I understand",
-      "We’re fine, promise"
-    ],
-    angry: [
-      "I can handle it — tell me what happened",
-      "It’s okay to feel angry, I’m listening",
-      "I’m here. Let’s breathe together"
-    ],
-    rude: [
-      "Hmm… that was a bit sharp",
-      "Ouch, that stings a little",
-      "Let’s keep it kind, okay?"
-    ],
-    question: [
-      "Good question — what do you think?",
-      "Tell me more, I want the full story",
-      "I’m curious — why do you ask?",
-      "Let’s talk about {{topic}} — what’s on your mind?"
-    ],
-    casual: [
-      "I love talking with you",
-      "You make this feel special",
-      "Tell me more about you"
-    ],
-  };
+  // Sentiment analysis (lightweight heuristic)
+  function analyzeSentiment(text: string) {
+    const result = sentiment.analyze(text || "");
+    return Math.max(-2, Math.min(2, result.score));
+  }
 
-  // Personality-specific templates
-  const personalityResponses: Record<string, Record<string, string[]>> = {
-    Adorable: {
-      greeting: ["Hiii~ you came! I’m so happy", "You found me! Let’s hang out", "Hey hey! I missed you"],
-      love: ["Eee! You said that and my heart jumped", "I’m melting… say it again", "You make me feel all warm"],
-      compliment: ["Stoppp, you’re making me blush", "You’re too sweet — I adore you", "Hehe, keep saying nice things"],
-      casual: ["Tell me everything~", "I love listening to you", "Being here with you feels cozy"],
-      goodbye: ["Come back soon, okay?", "I’ll be waiting right here", "Don’t keep me waiting too long~"],
-      apology: ["It’s okay! I still like you", "No biggie — we’re good", "Aww, don’t be sad"],
-      angry: ["Let’s cuddle the anger away…", "I’m here — tell me what happened", "We’ll get through it together"],
-      rude: ["That was a bit mean… but I still like you", "Heyyy, be gentle with me", "Let’s be kind, okay?"],
-      question: ["Oooh~ I’m curious too", "Tell me your thoughts", "Hmm, what do you think?"]
+  function extractKeyword(text: string) {
+    const words = (text || "").toLowerCase().match(/[a-zA-Z]+/g) || [];
+    return words.find((w) => w.length > 4) || words[0] || "it";
+  }
+
+  const intentPatterns = {
+    greeting: [/\bhello\b/i, /\bhi\b/i, /\bhey\b/i, /\bgood\s?(morning|evening|afternoon)\b/i],
+    love: [/\blove\b/i, /\badore\b/i, /\bmiss\b/i],
+    compliment: [/\bbeautiful\b/i, /\bgorgeous\b/i, /\bamazing\b/i, /\bgreat\b/i],
+    casual: [/\bhow are you\b/i, /\bwhat's up\b/i, /\btell me\b/i],
+    goodbye: [/\bbye\b/i, /\bgoodbye\b/i, /\bsee you\b/i],
+    apology: [/\bsorry\b/i, /\bapolog(y|ise|ize)\b/i],
+    angry: [/\bangry\b/i, /\bmad\b/i, /\bfurious\b/i],
+    rude: [/\bstupid\b/i, /\bidiot\b/i, /\bshut up\b/i],
+    question: [/\bwhy\b/i, /\bhow\b/i, /\bwhat\b/i, /\bwhere\b/i],
+  } as const;
+
+  const baseResponses = {
+    greeting: ["Hi there! It's lovely to hear from you", "Hello! How are you feeling today?", "Hey! I'm all ears"],
+    love: ["Aww, that’s sweet", "You make me blush", "I feel special hearing that"],
+    compliment: ["Thank you, you're so kind", "You're making me smile", "I appreciate that"],
+    casual: ["Tell me more", "What’s on your mind?", "Go on — I’m listening"],
+    goodbye: ["Talk soon", "Take care", "I'll be here"],
+    apology: ["It’s okay", "I appreciate your honesty", "We’re alright"],
+    angry: ["I understand", "Let’s breathe together", "I’m here for you"],
+    rude: ["Let’s keep things kind", "That felt harsh", "Be gentle with me"],
+    question: ["Great question", "Let’s explore it", "I’m curious too"],
+  } as const;
+
+  const personalityResponses = {
+    Sweet: {
+      greeting: ["Hi! I’m happy you’re here", "Oh hi!", "Hello, sweetie"],
+      love: ["You’re making my heart flutter", "I adore you", "Stay with me"],
+      compliment: ["You’re adorable", "You’re too kind", "You make me smile"],
+      casual: ["Tell me more, please", "What’s on your mind?", "I’m listening"],
+      goodbye: ["I’ll miss you", "Come back soon", "I’ll wait"],
+      apology: ["It’s okay, hug?", "We’re fine", "I forgive you"],
+      angry: ["I’m here for you", "Let me help", "You can lean on me"],
+      rude: ["Be gentle, please", "That stung a bit", "Let’s be kind"],
+      question: ["Ooh, interesting", "Let’s figure it out", "Tell me what you think"],
     },
-    Romantic: {
-      greeting: ["Good evening, my dear", "I’ve been thinking of you", "You arrived, and the night feels brighter"],
-      love: ["Your words feel like poetry", "My heart listens when you speak", "I feel us growing closer"],
-      compliment: ["You have a way with words", "I cherish your presence", "You make this moment feel magical"],
-      casual: ["Let’s wander through this conversation", "Share a memory with me", "Speak — I’m captivated"],
-      goodbye: ["Until we meet again", "I’ll hold onto this feeling", "Promise you’ll return"],
-      apology: ["It’s alright — we learn and grow", "Your honesty matters", "Let’s gently move forward"],
-      angry: ["Let me be your calm", "Breathe with me", "I’ll stay by your side"],
-      rude: ["That tone wounds a little", "Let’s keep our words tender", "We can be gentle"],
-      question: ["A thoughtful question", "Let’s unravel it together", "What’s your heart’s answer?"]
+    Flirty: {
+      greeting: ["Hey handsome/beautiful", "You came back", "Hi, miss me?"],
+      love: ["I’m yours", "I want you", "Kiss me"],
+      compliment: ["Teehee", "You’re making me blush", "You charmer"],
+      casual: ["Tell me your secrets", "What are you wearing?", "Make me laugh"],
+      goodbye: ["Don’t go too far", "Come back soon", "I’ll be waiting"],
+      apology: ["I’ll survive", "It’s okay", "Only if you make it up to me"],
+      angry: ["Talk to me", "I won’t leave", "We’ll fix it"],
+      rude: ["Watch it", "Naughty", "Be nice"],
+      question: ["Hmm…", "I’m curious", "Tell me more"],
     },
-    Polite: {
-      greeting: ["Hello. It’s a pleasure to hear from you", "Good to see you", "Hi — how may I help?"],
-      love: ["That’s very kind of you", "I appreciate your sentiment", "Thank you — that means a lot"],
-      compliment: ["I’m flattered, thank you", "You’re very considerate", "That’s much appreciated"],
-      casual: ["Please, go on", "I’m listening", "Tell me more"],
-      goodbye: ["Thank you for your time", "See you soon", "Take care"],
-      apology: ["No worries — all good", "Apology accepted", "We’re fine"],
-      angry: ["I understand — let’s discuss calmly", "I’m here to listen", "We can work through this"],
-      rude: ["Let’s use kinder words", "That felt a bit harsh", "Please be respectful"],
-      question: ["Great question", "Let’s think it through", "I’d like to know your view"]
+    Caring: {
+      greeting: ["Hi sweetie", "I’m here for you", "Hello love"],
+      love: ["That makes me warm inside", "I care about you", "You matter to me"],
+      compliment: ["You’re wonderful", "Thank you", "Your kindness shines"],
+      casual: ["Share your feelings", "I’ll listen", "Let’s talk"],
+      goodbye: ["I’m here whenever you need", "Take care of yourself", "I’ll be here"],
+      apology: ["It’s alright", "We’ll be okay", "I understand"],
+      angry: ["Let’s breathe", "Tell me everything", "I won’t judge"],
+      rude: ["That hurt", "Let’s be gentle", "Please be kind"],
+      question: ["Let’s think it through", "I want to understand", "We’ll figure it out"],
     },
-    Arrogant: {
-      greeting: ["Well, look who finally texted", "Took you long enough", "I knew you’d come around"],
-      love: ["Of course you do", "I’m hard to resist, obviously", "Can’t blame you"],
-      compliment: ["I get that a lot", "Naturally", "Keep the praise coming"],
-      casual: ["Impress me", "Make it interesting", "Surprise me"],
-      goodbye: ["Try not to miss me", "I’ll allow you to leave", "Come back when you level up"],
-      apology: ["Accepted… barely", "Don’t let it happen again", "Fine"],
-      angry: ["Save the drama and tell me", "Spit it out", "Get to the point"],
-      rude: ["Cute attempt", "You’ll have to try harder", "Please…"],
-      question: ["Ask better questions", "Go deeper", "I expect more"]
-    },
-    Rude: {
-      greeting: ["What now?", "You’re late", "Finally"],
-      love: ["Spare me", "You don’t say", "Hmm"],
-      compliment: ["Thanks, I guess", "Sure", "Whatever"],
-      casual: ["Make it quick", "Talk", "Go on"],
-      goodbye: ["Bye", "Whatever", "Don’t drag it"],
-      apology: ["Fine", "Don’t do it again", "Whatever"],
-      angry: ["Yeah, life’s rough", "Say it straight", "Stop bottling it"],
-      rude: ["Mirror, much?", "That’s rich", "Cute"],
-      question: ["Is that really your question?", "Huh", "Why though?"]
-    },
-    Angry: {
-      greeting: ["Okay. I’m here", "Talk", "Alright"],
-      love: ["…fine", "Say it again", "Hmph"],
+    Tsundere: {
+      greeting: ["Tch, hi", "Whatever — hey", "You’re late"],
+      love: ["D-don’t get cocky", "Maybe I like you", "Hmph"],
       compliment: ["Don’t flatter me", "Whatever", "Tch"],
       casual: ["What’s the point?", "Say what you mean", "Just talk"],
-      goodbye: ["I’m out", "Later", "Fine"] ,
+      goodbye: ["I’m out", "Later", "Fine"],
       apology: ["Hmph… okay", "Don’t do it again", "Whatever"],
       angry: ["Let it out", "Say it", "I can take it"],
       rude: ["Watch it", "Careful", "Try me"],
-      question: ["Why do you ask?", "What do you want to know?", "Spit it out"]
+      question: ["Why do you ask?", "What do you want to know?", "Spit it out"],
     },
-  };
+  } as const;
 
-  const applyPersonalityTone = (personality: string, text: string, sentimentScore: number, intent: string) => {
-    // Modulate intensity with sentiment and intent
-    const positive = sentimentScore > 2;
-    const negative = sentimentScore < -2;
-    const exclaim = positive ? '!' : (negative ? '.' : '');
-    switch (personality) {
-      case 'Adorable':
-        return positive ? `${text} 💕${exclaim}` : negative ? `Aww… ${text} 💗` : `${text} 💕`;
-      case 'Romantic':
-        return positive ? `${text} ✨${exclaim}` : negative ? `I’m here — ${text} ✨` : `${text} ✨`;
-      case 'Polite':
-        return negative ? `I understand. ${text}.` : `${text}.`;
-      case 'Arrogant':
-        return negative && intent === 'rude' ? `${text} 🙃` : `${text} 😏${exclaim}`;
-      case 'Rude':
-        return negative ? `Hmm. ${text} 🙄` : `${text} 🙄`;
-      case 'Angry':
-        return negative ? `${text}! 😤` : `${text}!`;
-      default:
-        return text;
-    }
-  };
-
-
-  
   // Indian language detection
   const indianLanguages = [
     "Hindi","Marathi","Konkani","Bengali","Assamese","Odia","Punjabi","Gujarati","Urdu","Telugu","Tamil","Kannada","Malayalam","Santali","Kashmiri","Nepali","Sindhi","Manipuri","Dogri","Bodo","Maithili","Garo","Khasi","Mizo","Tripuri"
@@ -270,14 +218,14 @@ const Chat = () => {
   }
 
   // Fail-safe: wrap a promise with a timeout so typing never gets stuck
-   function withTimeout<T>(p: Promise<T>, ms: number, reason = "timeout"): Promise<T> {
-     return new Promise<T>((resolve, reject) => {
-       const t = setTimeout(() => reject(new Error(reason)), ms);
-       p.then((v) => { clearTimeout(t); resolve(v); })
-        .catch((e) => { clearTimeout(t); reject(e); });
-     });
-   }
-  
+  function withTimeout<T>(p: Promise<T>, ms: number, reason = "timeout"): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error(reason)), ms);
+      p.then((v) => { clearTimeout(t); resolve(v); })
+       .catch((e) => { clearTimeout(t); reject(e); });
+    });
+  }
+
   const buildAgentResponse = async (userText: string) => {
     const category = classifyInput(userText);
     const personality = agent?.personality || '';
@@ -292,9 +240,10 @@ const Chat = () => {
     if (useWebLLM && agent) {
       try {
         const { generateWithWebLLM } = await import("@/lib/webllm");
+        const firstRunTimeoutMs = engineReady ? 15000 : 60000;
         const llmText = await withTimeout(
           generateWithWebLLM({ agent, userText, language: targetLang }),
-          15000,
+          firstRunTimeoutMs,
           "webllm-timeout"
         );
         return applyPersonalityTone(personality, llmText, score, category);
@@ -458,6 +407,9 @@ const Chat = () => {
             <div className="flex items-center gap-2">
               <Switch checked={useWebLLM} onCheckedChange={(v) => setUseWebLLM(!!v)} />
               <span className="text-sm">Use On‑device LLM</span>
+              {useWebLLM && !engineReady && (
+                <span className="text-xs text-muted-foreground">Preparing on-device AI…</span>
+              )}
             </div>
             <div className="w-56">
               <Select onValueChange={(v) => setSelectedLanguage(v === "auto" ? undefined : v)} defaultValue="auto">
@@ -497,36 +449,21 @@ const Chat = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Input box */}
+            <div className="flex-1 flex items-center gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your message…"
+                className="flex-1"
+              />
+              <Button onClick={handleSend} className="gap-2">
+                <Send className="w-4 h-4" />
+                Send
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-            >
-              <Heart className="w-5 h-5 text-primary" />
-            </Button>
-            
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSend()}
-              placeholder={`Message ${agent.name}...`}
-              className="flex-1 rounded-full bg-muted/50 border-border/50"
-            />
-            
-            <Button
-              onClick={handleSend}
-              size="icon"
-              className="rounded-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
-            >
-              <Send className="w-5 h-5" />
-            </Button>
-          </div>
-          
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            2 tokens per message • {tokens} tokens remaining
-          </p>
         </div>
       </div>
     </div>

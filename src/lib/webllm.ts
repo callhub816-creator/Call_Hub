@@ -3,7 +3,7 @@ import type { MLCEngineInterface } from "@mlc-ai/web-llm";
 
 let enginePromise: Promise<MLCEngineInterface> | null = null;
 
-const DEFAULT_MODEL = "Llama-3.1-8B-Instruct-q4f32_1-MLC";
+const DEFAULT_MODEL = "Llama-3.1-3B-Instruct-q4f32_1-MLC";
 
 export async function getEngine(modelId: string = DEFAULT_MODEL): Promise<MLCEngineInterface> {
   if (!enginePromise) {
@@ -60,6 +60,7 @@ export async function generateWithWebLLM({ agent, userText, language }: Generate
     messages,
     temperature: 0.8,
     top_p: 0.9,
+    max_tokens: 64,
   });
   const text = completion.choices?.[0]?.message?.content || "";
   return text.trim();
