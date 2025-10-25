@@ -1,0 +1,4 @@
+# Netlify redirects (if ever deployed to Netlify)
+/*    /index.html   200
+
+# GitHub Pages fallback - all routes should serve index.html
